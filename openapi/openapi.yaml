@@ -2,7 +2,9 @@ openapi: 3.0.0
 info:
   title: Business Registry API
   version: 1.0.0
-  description: API for managing domain name registration and reservation in the business registry
+  description: |
+    API for managing domain name registration and reservation in the business registry.
+    Note: Access to this API is restricted to authorized IP addresses only.
 
 servers:
   - url: https://api.example.com/v1
@@ -44,7 +46,7 @@ paths:
       summary: Refresh access token
       description: Refreshes an existing access token
       security:
-        - BearerAuth: []
+        - CustomTokenAuth: []
       responses:
         '200':
           description: Token successfully refreshed
@@ -65,7 +67,7 @@ paths:
       summary: Get registration code
       description: Returns the registration code for a reserved domain
       security:
-        - BearerAuth: []
+        - CustomTokenAuth: []
       responses:
         '200':
           description: Successful response
@@ -86,7 +88,7 @@ paths:
       summary: Release reserved domain
       description: Releases a previously reserved domain
       security:
-        - BearerAuth: []
+        - CustomTokenAuth: []
       responses:
         '200':
           description: Domain successfully released
@@ -107,7 +109,7 @@ paths:
       summary: Reserve a domain
       description: Reserves the specified domain
       security:
-        - BearerAuth: []
+        - CustomTokenAuth: []
       requestBody:
         required: true
         content:
@@ -117,14 +119,8 @@ paths:
               properties:
                 domain_name:
                   type: string
-                buyer_name:
-                  type: string
-                buyer_email:
-                  type: string
               required:
                 - domain_name
-                - buyer_name
-                - buyer_email
       responses:
         '201':
           description: Domain successfully reserved
@@ -151,7 +147,7 @@ paths:
       summary: Get reserved domain status
       description: Returns the current status of a reserved domain
       security:
-        - BearerAuth: []
+        - CustomTokenAuth: []
       responses:
         '200':
           description: Successful response
@@ -173,9 +169,11 @@ paths:
 
 components:
   securitySchemes:
-    BearerAuth:
-      type: http
-      scheme: bearer
+    CustomTokenAuth:
+      type: apiKey
+      in: header
+      name: X-Auth-Token
+      description: Custom token for identifying specific database records
   
   schemas:
     Error:
@@ -212,6 +210,3 @@ components:
                 type: array
                 items:
                   type: string
-
-security:
-  - BearerAuth: []
