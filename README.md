@@ -4,7 +4,7 @@ This repository contains the OpenAPI specification and documentation for the Bus
 
 ## Viewing the Documentation
 
-You can view the live documentation at [https://your-username.github.io/business-registry-api-docs/](https://your-username.github.io/business-registry-api-docs/)
+You can view the live documentation at [https://internetee.github.io/domain-reservation-api-docs/](https://internetee.github.io/domain-reservation-api-docs/)
 
 ## Development
 
