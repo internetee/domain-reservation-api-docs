@@ -4,12 +4,12 @@
   "description": "Documentation for Business Registry API",
   "scripts": {
     "start": "redoc-cli serve openapi/openapi.yaml --watch",
-    "build": "redoc-cli bundle openapi/openapi.yaml"
+    "build": "redoc-cli bundle openapi/openapi.yaml -o index.html"
   },
   "keywords": ["api", "documentation", "openapi", "redoc"],
   "author": "",
   "license": "ISC",
-  "devDependencies": {
+  "dependencies": {
     "redoc-cli": "^0.13.0"
   }
 }
