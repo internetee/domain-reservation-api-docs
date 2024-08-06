@@ -1,0 +1,217 @@
+openapi: 3.0.0
+info:
+  title: Business Registry API
+  version: 1.0.0
+  description: API for managing domain name registration and reservation in the business registry
+
+servers:
+  - url: https://api.example.com/v1
+    description: Main API server
+
+paths:
+  /business_registry/domain_names:
+    get:
+      summary: Get available domain name variants
+      description: Generates and returns a list of available domain name variants based on the organization name
+      parameters:
+        - in: query
+          name: organization_name
+          required: true
+          schema:
+            type: string
+          description: Organization name to generate domain name variants
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  variants:
+                    type: array
+                    items:
+                      type: string
+        '400':
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /business_registry/refresh_token:
+    patch:
+      summary: Refresh access token
+      description: Refreshes an existing access token
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: Token successfully refreshed
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                  token:
+                    type: string
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /business_registry/registration_code:
+    get:
+      summary: Get registration code
+      description: Returns the registration code for a reserved domain
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  name:
+                    type: string
+                  registration_code:
+                    type: string
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /business_registry/release:
+    delete:
+      summary: Release reserved domain
+      description: Releases a previously reserved domain
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: Domain successfully released
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '422':
+          $ref: '#/components/responses/UnprocessableEntity'
+
+  /business_registry/reserve:
+    post:
+      summary: Reserve a domain
+      description: Reserves the specified domain
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                domain_name:
+                  type: string
+                buyer_name:
+                  type: string
+                buyer_email:
+                  type: string
+              required:
+                - domain_name
+                - buyer_name
+                - buyer_email
+      responses:
+        '201':
+          description: Domain successfully reserved
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                  token:
+                    type: string
+                  linkpay:
+                    type: string
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '422':
+          $ref: '#/components/responses/UnprocessableEntity'
+
+  /business_registry/status:
+    get:
+      summary: Get reserved domain status
+      description: Returns the current status of a reserved domain
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  invoice_status:
+                    type: string
+                  reserved_domain:
+                    type: string
+                  password:
+                    type: string
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '422':
+          $ref: '#/components/responses/UnprocessableEntity'
+
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+  
+  schemas:
+    Error:
+      type: object
+      properties:
+        error:
+          type: string
+      required:
+        - error
+
+  responses:
+    BadRequest:
+      description: Bad request
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    Unauthorized:
+      description: Unauthorized access
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    UnprocessableEntity:
+      description: Unprocessable entity
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              error:
+                type: string
+              details:
+                type: array
+                items:
+                  type: string
+
+security:
+  - BearerAuth: []

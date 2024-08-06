@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>Business Registry API Documentation</title>
+    <meta charset="utf-8"/>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link href="https://fonts.googleapis.com/css?family=Montserrat:300,400,700|Roboto:300,400,700" rel="stylesheet">
+    <style>
+      body {
+        margin: 0;
+        padding: 0;
+      }
+    </style>
+  </head>
+  <body>
+    <redoc spec-url='openapi/openapi.yaml' options='{
+      "theme": {
+        "colors": {
+          "primary": {
+            "main": "#1976d2"
+          }
+        },
+        "typography": {
+          "fontFamily": "Roboto, sans-serif",
+          "fontSize": "16px",
+          "lineHeight": "1.5",
+          "headings": {
+            "fontFamily": "Montserrat, sans-serif",
+            "fontWeight": "bold"
+          }
+        },
+        "sidebar": {
+          "backgroundColor": "#f5f5f5",
+          "textColor": "#333333"
+        }
+      },
+      "expandResponses": "all",
+      "hideDownloadButton": true,
+      "requiredPropsFirst": true,
+      "scrollYOffset": 50
+    }'></redoc>
+    <script src="https://cdn.redoc.ly/redoc/latest/bundles/redoc.standalone.js"> </script>
+  </body>
+</html>
