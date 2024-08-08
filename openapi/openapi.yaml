@@ -4,17 +4,31 @@ info:
   version: 1.0.0
   description: |
     API for managing domain name registration and reservation in the business registry.
-    Note: Access to this API is restricted to authorized IP addresses only.
+    
+    Key features:
+    - Domain name reservation
+    - Retrieval of registration codes for reserved domains
+    - Status checks for reserved domains
+    
+    Important: The registration code obtained through this API is essential for completing 
+    the domain registration process with authorized registrars. This code serves as a 
+    password and should be kept confidential until provided to the chosen registrar.
+
+    Note: Access to all endpoints in this API is restricted to authorized IP addresses only.
+    Some endpoints additionally require a custom token for authentication.
+
 
 servers:
   - url: https://api.example.com/v1
     description: Main API server
 
 paths:
-  /business_registry/domain_names:
+ /business_registry/domain_names:
     get:
       summary: Get available domain name variants
-      description: Generates and returns a list of available domain name variants based on the organization name
+      description: |
+        Generates and returns a list of available domain name variants based on the organization name.
+        Note: This endpoint does not require a token, but access is restricted to authorized IP addresses only.
       parameters:
         - in: query
           name: organization_name
@@ -41,10 +55,15 @@ paths:
               schema:
                 $ref: '#/components/schemas/Error'
 
-  /business_registry/refresh_token:
+/business_registry/refresh_token:
     patch:
       summary: Refresh access token
-      description: Refreshes an existing access token
+      description: |
+        Refreshes an existing access token. 
+        The current token must be provided in the X-Auth-Token header.
+        No request body is required.
+        Returns a new unique token to replace the current one.
+        Note: The initial token is issued when a domain is reserved.
       security:
         - CustomTokenAuth: []
       responses:
@@ -55,17 +74,25 @@ paths:
               schema:
                 type: object
                 properties:
-                  message:
+                  message:å
                     type: string
+                    example: "Token refreshed successfully"
                   token:
                     type: string
+                    example: "new_unique_token_123xyz"
         '401':
           $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
 
-  /business_registry/registration_code:
+/business_registry/registration_code:
     get:
-      summary: Get registration code
-      description: Returns the registration code for a reserved domain
+      summary: Get registration code for reserved domain
+      description: |
+        Returns the registration code (password) for a reserved domain.
+        This code is crucial for the domain registration process with registrars.
+        The registrar will require this code to verify and complete the registration of the reserved domain.
+        Note: Keep this code confidential and provide it only to your chosen registrar when initiating the domain registration process.
       security:
         - CustomTokenAuth: []
       responses:
@@ -78,10 +105,20 @@ paths:
                 properties:
                   name:
                     type: string
+                    description: The name of the reserved domain
+                    example: "example-company.ee"
                   registration_code:
                     type: string
+                    description: The registration code (password) to be used when registering the domain with a registrar
+                    example: "secure_registration_code_123xyz"
         '401':
           $ref: '#/components/responses/Unauthorized'
+        '404':
+          description: Reserved domain not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
 
   /business_registry/release:
     delete:
@@ -101,6 +138,8 @@ paths:
                     type: string
         '401':
           $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
         '422':
           $ref: '#/components/responses/UnprocessableEntity'
 
@@ -173,7 +212,11 @@ components:
       type: apiKey
       in: header
       name: X-Auth-Token
-      description: Custom token for identifying specific database records
+      description: |
+        Custom token for identifying specific database records.
+        This token is required for all endpoints except /business_registry/domain_names.
+        The initial token is issued when a domain is reserved and can be refreshed using the /business_registry/refresh_token endpoint.
+        Note that IP restriction applies to all endpoints regardless of token requirement.
   
   schemas:
     Error:
