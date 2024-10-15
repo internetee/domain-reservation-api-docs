@@ -33,6 +33,7 @@ info:
     - The registration code obtained through this API is essential for completing the domain registration process with authorized registrars. This code serves as a password and should be kept confidential until provided to the chosen registrar.
     - Most endpoints require the token to be included in the Authorization header as a Bearer token. This token is initially provided when reserving a domain.
     - Access to all endpoints in this API is restricted to authorized IP addresses only.
+    - All requests to this API must include an 'Origin' header specifying the hostname of the client.
 
     Security:
     - All communication with this API should be conducted over HTTPS to ensure data privacy and integrity.
@@ -47,37 +48,37 @@ servers:
     description: Main API server
 
 paths:
-  /business_registry/domain_names:
-      get:
-        summary: Get available domain name variants
-        description: |
-          Generates and returns a list of available domain name variants based on the organization name.
-          Note: This endpoint does not require a token, but access is restricted to authorized IP addresses only.
-        parameters:
-          - in: query
-            name: organization_name
-            required: true
-            schema:
-              type: string
-            description: Organization name to generate domain name variants
-        responses:
-          '200':
-            description: Successful response
-            content:
-              application/json:
-                schema:
-                  type: object
-                  properties:
-                    variants:
-                      type: array
-                      items:
-                        type: string
-          '400':
-            description: Bad request
-            content:
-              application/json:
-                schema:
-                  $ref: '#/components/schemas/Error'
+  /business_registry/domain_names/{organization_name}:
+    get:
+      summary: Get available domain name variants
+      description: |
+        Generates and returns a list of available domain name variants based on the organization name.
+        Note: This endpoint does not require a token, but access is restricted to authorized IP addresses only.
+      parameters:
+        - in: path
+          name: organization_name
+          required: true
+          schema:
+            type: string
+          description: Organization name to generate domain name variants
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  variants:
+                    type: array
+                    items:
+                      type: string
+        '400':
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
 
   /business_registry/refresh_token:
       patch:
