@@ -106,15 +106,15 @@ paths:
   /business_registry/long_reserve_domains_status:
     get:
       summary: Get status of long-term reserved domains
-      security:
-        - CustomTokenAuth: []
       parameters:
         - in: query
           name: invoice_number
+          required: true
           schema:
             type: string
         - in: query
           name: user_unique_id
+          required: true
           schema:
             type: string
       responses:
@@ -127,8 +127,18 @@ paths:
                 properties:
                   status:
                     type: string
-                  invoice_details:
-                    type: object
+                    enum: [pending, paid, failed]
+                  message:
+                    type: string
+                  reserved_domains:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        name:
+                          type: string
+                        password:
+                          type: string
 
   /business_registry/reserve_domains:
     post:
@@ -164,36 +174,6 @@ paths:
                     items:
                       type: object
 
-  /business_registry/refresh_token:
-      patch:
-        summary: Refresh access token
-        description: |
-          Refreshes an existing access token. 
-          The current token must be provided in the X-Auth-Token header.
-          No request body is required.
-          Returns a new unique token to replace the current one.
-          Note: The initial token is issued when a domain is reserved.
-        security:
-          - CustomTokenAuth: []
-        responses:
-          '200':
-            description: Token successfully refreshed
-            content:
-              application/json:
-                schema:
-                  type: object
-                  properties:
-                    message:
-                      type: string
-                      example: "Token refreshed successfully"
-                    token:
-                      type: string
-                      example: "new_unique_token_123xyz"
-          '401':
-            $ref: '#/components/responses/Unauthorized'
-          '404':
-            $ref: '#/components/responses/NotFound'
-
   /business_registry/registration_code:
       get:
         summary: Get registration code for reserved domain
@@ -228,92 +208,6 @@ paths:
               application/json:
                 schema:
                   $ref: '#/components/schemas/Error'
-
-  /business_registry/release:
-    delete:
-      summary: Release reserved domain
-      description: Releases a previously reserved domain
-      security:
-        - CustomTokenAuth: []
-      responses:
-        '200':
-          description: Domain successfully released
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  message:
-                    type: string
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '404':
-          $ref: '#/components/responses/NotFound'
-        '422':
-          $ref: '#/components/responses/UnprocessableEntity'
-
-  /business_registry/reserve:
-    post:
-      summary: Reserve a domain
-      description: Reserves the specified domain
-      security:
-        - CustomTokenAuth: []
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              properties:
-                domain_name:
-                  type: string
-              required:
-                - domain_name
-      responses:
-        '201':
-          description: Domain successfully reserved
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  message:
-                    type: string
-                  token:
-                    type: string
-                  linkpay:
-                    type: string
-        '400':
-          $ref: '#/components/responses/BadRequest'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '422':
-          $ref: '#/components/responses/UnprocessableEntity'
-
-  /business_registry/status:
-    get:
-      summary: Get reserved domain status
-      description: Returns the current status of a reserved domain
-      security:
-        - CustomTokenAuth: []
-      responses:
-        '200':
-          description: Successful response
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  invoice_status:
-                    type: string
-                  reserved_domain:
-                    type: string
-                  password:
-                    type: string
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '422':
-          $ref: '#/components/responses/UnprocessableEntity'
 
 components:
   securitySchemes:
