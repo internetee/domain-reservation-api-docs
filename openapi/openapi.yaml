@@ -6,41 +6,31 @@ info:
     API for managing domain name registration and reservation in the business registry.
 
     Key features:
-    - Domain name reservation
-    - Retrieval of registration codes for reserved domains
-    - Status checks for reserved domains
+    - Domain name reservation (with and without payment)
+    - Long-term domain reservation
+    - Payment processing and status tracking
+    - Registration code retrieval
+    - Multiple domain handling
 
     Process Overview:
     1. Domain Name Suggestions: 
-       Use the '/business_registry/domain_names' endpoint to receive suggestions for available domain names based on the organization's name.
+       Use the '/business_registry/domain_names' endpoint to receive suggestions for available domain names.
 
-    2. Domain Reservation: 
-       Utilize the '/business_registry/reserve' endpoint to reserve a chosen domain name. This endpoint returns a token for tracking the reservation status and a payment link.
+    2. Domain Reservation Options:
+       - Standard Reservation: Use '/business_registry/reserve_domains' for immediate reservation without payment
+       - Long-term Reservation: Use '/business_registry/long_reserve_domains' for paid long-term reservation
 
-    3. Reservation Status: 
-       The '/business_registry/status' endpoint allows tracking of the payment receipt and domain reservation status. Upon successful payment and reservation, it provides the reserved domain name and a registration password.
+    3. Payment and Status Tracking:
+       - For long-term reservations, use '/business_registry/long_reserve_domains_status' to track payment status
 
-    4. Registration Code Retrieval: 
-       If the registration password is lost or forgotten, use the '/business_registry/registration_code' endpoint to retrieve it using the provided token.
-
-    5. Token Refresh: 
-       Tokens have a 30-day validity period. Use the '/business_registry/refresh_token' endpoint to renew an expired token or in case of a potential token compromise.
-
-    6. Reservation Cancellation: 
-       To cancel a domain reservation, use the '/business_registry/release' endpoint.
+    4. Registration Code Retrieval:
+       Use '/business_registry/registration_code' to get the registration code after successful payment.
 
     Important Notes:
-    - The registration code obtained through this API is essential for completing the domain registration process with authorized registrars. This code serves as a password and should be kept confidential until provided to the chosen registrar.
-    - Most endpoints require the token to be included in the Authorization header as a Bearer token. This token is initially provided when reserving a domain.
-    - Access to all endpoints in this API is restricted to authorized IP addresses only.
-    - All requests to this API must include an 'Origin' header specifying the hostname of the client.
-
-    Security:
-    - All communication with this API should be conducted over HTTPS to ensure data privacy and integrity.
-    - Protect the received token and registration code. Do not share them with unauthorized parties.
-    - Regularly refresh your token to maintain security.
-
-    For detailed information on each endpoint, including required parameters and possible responses, please refer to the individual endpoint documentation below.
+    - Maximum limit of domains per request applies (MAX_DOMAIN_NAME_PER_REQUEST)
+    - All endpoints require either IP authentication or token authentication
+    - CORS headers are included in all responses
+    - Payment processing includes success and failure callback URLs
 
 
 servers:
@@ -48,14 +38,14 @@ servers:
     description: Main API server
 
 paths:
-  /business_registry/domain_names/{organization_name}:
+  /business_registry/domain_names:
     get:
       summary: Get available domain name variants
       description: |
         Generates and returns a list of available domain name variants based on the organization name.
-        Note: This endpoint does not require a token, but access is restricted to authorized IP addresses only.
+        Requires IP authentication.
       parameters:
-        - in: path
+        - in: query
           name: organization_name
           required: true
           schema:
@@ -73,12 +63,106 @@ paths:
                     type: array
                     items:
                       type: string
-        '400':
-          description: Bad request
+
+  /business_registry/long_reserve_domains:
+    post:
+      summary: Reserve domains for long-term with payment
+      security:
+        - CustomTokenAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                domain_names:
+                  type: array
+                  items:
+                    type: string
+                success_url:
+                  type: string
+                  description: Callback URL for successful payment
+                failed_url:
+                  type: string
+                  description: Callback URL for failed payment
+              required:
+                - domain_names
+      responses:
+        '201':
+          description: Domains successfully reserved
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Error'
+                type: object
+                properties:
+                  payment_link:
+                    type: string
+                  reserved_domains:
+                    type: array
+                    items:
+                      type: object
+
+  /business_registry/long_reserve_domains_status:
+    get:
+      summary: Get status of long-term reserved domains
+      security:
+        - CustomTokenAuth: []
+      parameters:
+        - in: query
+          name: invoice_number
+          schema:
+            type: string
+        - in: query
+          name: user_unique_id
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Status retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                  invoice_details:
+                    type: object
+
+  /business_registry/reserve_domains:
+    post:
+      summary: Reserve domains without payment
+      security:
+        - CustomTokenAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                domain_names:
+                  type: array
+                  items:
+                    type: string
+                  description: Array of domain names to reserve (limited by MAX_DOMAIN_NAME_PER_REQUEST)
+              required:
+                - domain_names
+      responses:
+        '201':
+          description: Domains successfully reserved
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                  reserved_domains:
+                    type: array
+                    items:
+                      type: object
 
   /business_registry/refresh_token:
       patch:
