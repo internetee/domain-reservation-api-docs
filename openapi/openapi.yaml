@@ -28,7 +28,6 @@ info:
 
     ## TODO:
     - [ ] Add endpoint for retrieving passwords for free-tier reserved domains
-    - [ ] Implement functionality and logic for handling expired_at field for reserved domains
     - [ ] Add additional security layer
 
     ## Important Notes:
@@ -213,9 +212,16 @@ paths:
                       reserved_domains:
                         type: array
                         items:
-                          type: string
-                        description: List of successfully reserved domains
-                        example: ["example.ee", "example2.ee"]
+                          type: object
+                          properties:
+                            name:
+                              type: string
+                              example: "example.ee"
+                            expire_at:
+                              type: string
+                              format: date-time
+                              example: "2024-12-31T23:59:59Z"
+                              description: "Expiration date and time of the domain reservation"
                   - type: object
                     properties:
                       status:
@@ -290,6 +296,11 @@ paths:
                         password:
                           type: string
                           example: "abc123xyz"
+                        expire_at:
+                          type: string
+                          format: date-time
+                          example: "2024-12-31T23:59:59Z"
+                          description: "Expiration date and time of the domain reservation"
         '400':
           description: Bad request - Invalid parameters
           content:
