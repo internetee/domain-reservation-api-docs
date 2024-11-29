@@ -3,41 +3,47 @@ info:
   title: Business Registry API
   version: 1.0.0
   description: |
-    API for managing domain name registration and reservation in the business registry.
+    # API for managing domain name registration and reservation in the business registry.
 
-    Key features:
-    - Free short-term domain reservation (7 days)
-    - Paid long-term domain reservation (1 year)
-    - Batch domain reservation (up to 20 domains per request)
-    - Payment status tracking with access to domain passwords
-    - Registration code retrieval
+    ## Key features:
+    - **Free short-term domain reservation** (7 days)
+    - **Paid long-term domain reservation** (1 year)
+    - **Batch domain reservation** (up to 20 domains per request)
+    - **Payment status tracking** with access to domain passwords
+    - **Registration code retrieval**
 
-    Process Overview:
-    1. Domain Name Suggestions: 
-       Use the '/business_registry/domain_names' endpoint to receive suggestions for available domain names.
+    ## Process Overview:
+    ### 1. Domain Name Suggestions: 
+       Use the `/business_registry/domain_names` endpoint to receive suggestions for available domain names.
 
-    2. Domain Reservation Options:
-       - Short-term Reservation: Use '/business_registry/reserve_domains' for free 7-day reservation
-       - Long-term Reservation: Use '/business_registry/long_reserve_domains' for paid 1-year reservation
-         (Price depends on the number of domains reserved)
+    ### 2. Domain Reservation Options:
+       - **Short-term Reservation:** Use `/business_registry/reserve_domains` for free 7-day reservation
+       - **Long-term Reservation:** Use `/business_registry/long_reserve_domains` for paid 1-year reservation
+         _(Price depends on the number of domains reserved)_
 
-    3. Payment and Status Tracking:
-       - For long-term reservations, use '/business_registry/long_reserve_domains_status' to:
+    ### 3. Payment and Status Tracking:
+       - For long-term reservations, use `/business_registry/long_reserve_domains_status` to:
          * Check payment status
          * Access domain passwords after successful payment
 
-    Important Notes:
-    - Maximum limit of 20 domains per request
-    - All endpoints require either IP authentication or token authentication
-    - Payment processing is handled through Linkpay Everypay without automatic redirects
-    - After payment, use the status endpoint (/business_registry/long_reserve_domains_status) to verify payment completion
-      as payment notifications are processed on our backend
-    - It's crucial to store the user_unique_id as it ensures domain ownership for the first paying user when
+    ## TODO:
+    - [ ] Add endpoint for retrieving passwords for free-tier reserved domains
+    - [ ] Implement functionality and logic for handling expired_at field for reserved domains
+    - [ ] Add additional security layer
+
+    ## Important Notes:
+    - **Maximum limit:** 20 domains per request
+    - **Authentication:** All endpoints require either IP authentication or token authentication
+    - **Payment processing:** Handled through Linkpay Everypay without automatic redirects
+    - **Payment verification:** After payment, use the status endpoint (`/business_registry/long_reserve_domains_status`) 
+      to verify payment completion as payment notifications are processed on our backend
+    - **Important:** It's crucial to store the `user_unique_id` as it ensures domain ownership for the first paying user when
       multiple reservation requests contain overlapping domain names
-    - Long-term reservation process:
+
+    ### Long-term reservation process:
       * Each user requesting long-term domain reservation receives a unique payment link and invoice in Everypay
       * If domains in a new reservation request overlap with existing unpaid reservations, a new invoice
-        with the same number but different user_unique_id is created
+        with the same number but different `user_unique_id` is created
       * When one user completes payment, all other invoices with the same number are automatically cancelled
         (Everypay Linkpay behavior)
       * Users with cancelled invoices need to submit a new reservation request for their desired domains
