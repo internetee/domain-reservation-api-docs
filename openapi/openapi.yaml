@@ -6,31 +6,41 @@ info:
     API for managing domain name registration and reservation in the business registry.
 
     Key features:
-    - Domain name reservation (with and without payment)
-    - Long-term domain reservation
-    - Payment processing and status tracking
+    - Free short-term domain reservation (7 days)
+    - Paid long-term domain reservation (1 year)
+    - Batch domain reservation (up to 20 domains per request)
+    - Payment status tracking with access to domain passwords
     - Registration code retrieval
-    - Multiple domain handling
 
     Process Overview:
     1. Domain Name Suggestions: 
        Use the '/business_registry/domain_names' endpoint to receive suggestions for available domain names.
 
     2. Domain Reservation Options:
-       - Standard Reservation: Use '/business_registry/reserve_domains' for immediate reservation without payment
-       - Long-term Reservation: Use '/business_registry/long_reserve_domains' for paid long-term reservation
+       - Short-term Reservation: Use '/business_registry/reserve_domains' for free 7-day reservation
+       - Long-term Reservation: Use '/business_registry/long_reserve_domains' for paid 1-year reservation
+         (Price depends on the number of domains reserved)
 
     3. Payment and Status Tracking:
-       - For long-term reservations, use '/business_registry/long_reserve_domains_status' to track payment status
-
-    4. Registration Code Retrieval:
-       Use '/business_registry/registration_code' to get the registration code after successful payment.
+       - For long-term reservations, use '/business_registry/long_reserve_domains_status' to:
+         * Check payment status
+         * Access domain passwords after successful payment
 
     Important Notes:
-    - Maximum limit of domains per request applies (MAX_DOMAIN_NAME_PER_REQUEST)
+    - Maximum limit of 20 domains per request
     - All endpoints require either IP authentication or token authentication
-    - CORS headers are included in all responses
-    - Payment processing includes success and failure callback URLs
+    - Payment processing is handled through Linkpay Everypay without automatic redirects
+    - After payment, use the status endpoint (/business_registry/long_reserve_domains_status) to verify payment completion
+      as payment notifications are processed on our backend
+    - It's crucial to store the user_unique_id as it ensures domain ownership for the first paying user when
+      multiple reservation requests contain overlapping domain names
+    - Long-term reservation process:
+      * Each user requesting long-term domain reservation receives a unique payment link and invoice in Everypay
+      * If domains in a new reservation request overlap with existing unpaid reservations, a new invoice
+        with the same number but different user_unique_id is created
+      * When one user completes payment, all other invoices with the same number are automatically cancelled
+        (Everypay Linkpay behavior)
+      * Users with cancelled invoices need to submit a new reservation request for their desired domains
 
 
 servers:
@@ -38,22 +48,23 @@ servers:
     description: Main API server
 
 paths:
-  /business_registry/domain_names:
+  /api/v1/business_registry/domain_names/{organization_name}:
     get:
-      summary: Get available domain name variants
-      description: |
-        Generates and returns a list of available domain name variants based on the organization name.
-        Requires IP authentication.
+      tags:
+        - Business Registry
+      summary: Get available domain name variants for an organization
+      description: Generates and checks availability of domain name variants for a given organization name
       parameters:
-        - in: query
-          name: organization_name
+        - name: organization_name
+          in: path
           required: true
           schema:
             type: string
-          description: Organization name to generate domain name variants
+          description: Name of the organization to generate domain variants for
+          example: "Example Company"
       responses:
         '200':
-          description: Successful response
+          description: Successful response with available domain variants
           content:
             application/json:
               schema:
@@ -63,31 +74,194 @@ paths:
                     type: array
                     items:
                       type: string
-
-  /business_registry/long_reserve_domains:
-    post:
-      summary: Reserve domains for long-term with payment
+                    description: List of available domain name variants
+                    example: ["example.ee", "examplecompany.ee"]
+        '400':
+          description: Invalid organization name
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+                    example: "Invalid organization name"
       security:
-        - CustomTokenAuth: []
+        - ipRestriction: []
+
+
+  /api/v1/business_registry/long_reserve_domains:
+    post:
+      tags:
+        - Business Registry
+      summary: Reserve multiple domains for long-term registration
+      description: Creates long-term domain reservations and returns payment information
       requestBody:
         required: true
         content:
           application/json:
             schema:
               type: object
+              required:
+                - domain_names
               properties:
                 domain_names:
                   type: array
                   items:
                     type: string
-                success_url:
-                  type: string
-                  description: Callback URL for successful payment
-                failed_url:
-                  type: string
-                  description: Callback URL for failed payment
+                  description: Array of domain names to reserve
+                  example: ["example.ee", "example2.ee"]
+      responses:
+        '201':
+          description: Domains successfully reserved (pending payment)
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "Domains are in pending status. Need to pay for domains."
+                  linkpay_url:
+                    type: string
+                    description: URL for payment processing
+                    example: "https://payment.example.com/invoice/123"
+                  invoice_number:
+                    type: string
+                    description: Generated invoice number
+                    example: "1234567"
+                  user_unique_id:
+                    type: string
+                    description: Unique identifier for the user
+                    example: "user-123-xyz"
+                  available_domains:
+                    type: array
+                    items:
+                      type: string
+                    description: List of domains that were available and reserved
+                    example: ["example.ee", "example2.ee"]
+        '400':
+          description: Bad request - Invalid parameters
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+                    example: "Invalid parameter: domain_names must be a non-empty array of valid domain names"
+        '422':
+          description: Unprocessable Entity - Domain availability or validation issues
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+                    example: "Some domains are not available"
+                  details:
+                    type: object
+                    description: Optional additional error details
+      security:
+        - ipRestriction: []
+
+
+  /api/v1/business_registry/long_reserve_domains_status:
+    get:
+      tags:
+        - Business Registry
+      summary: Check status of reserved domains
+      description: Returns the current status of reserved domains and payment information
+      parameters:
+        - name: invoice_number
+          in: query
+          required: true
+          schema:
+            type: string
+          description: Invoice number for the reserved domains
+          example: "1234567"
+        - name: user_unique_id
+          in: query
+          required: true
+          schema:
+            type: string
+          description: Unique identifier of the user
+          example: "user-123-xyz"
+      responses:
+        '200':
+          description: Successfully retrieved domain reservation status
+          content:
+            application/json:
+              schema:
+                type: object
+                oneOf:
+                  - type: object
+                    properties:
+                      status:
+                        type: string
+                        enum: [paid]
+                      message:
+                        type: string
+                        example: "Payment successful"
+                      reserved_domains:
+                        type: array
+                        items:
+                          type: string
+                        description: List of successfully reserved domains
+                        example: ["example.ee", "example2.ee"]
+                  - type: object
+                    properties:
+                      status:
+                        type: string
+                        enum: [pending, failed]
+                      message:
+                        type: string
+                        example: "Payment pending"
+                      names:
+                        type: array
+                        items:
+                          type: string
+                        description: List of domain names in the reservation
+                        example: ["example.ee", "example2.ee"]
+        '404':
+          description: Reserved domain invoice not found
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+                    example: "Reserved domain invoice not found"
+      security:
+        - ipRestriction: []
+
+
+  /api/v1/business_registry/reserve_domains:
+    post:
+      tags:
+        - Business Registry
+      summary: Reserve domains without payment
+      description: Creates domain reservations without requiring immediate payment
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
               required:
                 - domain_names
+              properties:
+                domain_names:
+                  type: array
+                  items:
+                    type: string
+                    pattern: '^[\p{L}\p{N}\-\.]+$'
+                  minItems: 1
+                  maxItems: 20
+                  description: Array of domain names to reserve
+                  example: ["example.ee", "example2.ee"]
       responses:
         '201':
           description: Domains successfully reserved
@@ -96,40 +270,9 @@ paths:
               schema:
                 type: object
                 properties:
-                  payment_link:
-                    type: string
-                  reserved_domains:
-                    type: array
-                    items:
-                      type: object
-
-  /business_registry/long_reserve_domains_status:
-    get:
-      summary: Get status of long-term reserved domains
-      parameters:
-        - in: query
-          name: invoice_number
-          required: true
-          schema:
-            type: string
-        - in: query
-          name: user_unique_id
-          required: true
-          schema:
-            type: string
-      responses:
-        '200':
-          description: Status retrieved successfully
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  status:
-                    type: string
-                    enum: [pending, paid, failed]
                   message:
                     type: string
+                    example: "Domains reserved successfully"
                   reserved_domains:
                     type: array
                     items:
@@ -137,80 +280,42 @@ paths:
                       properties:
                         name:
                           type: string
+                          example: "example.ee"
                         password:
                           type: string
-
-  /business_registry/reserve_domains:
-    post:
-      summary: Reserve domains without payment
-      security:
-        - CustomTokenAuth: []
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              properties:
-                domain_names:
-                  type: array
-                  items:
-                    type: string
-                  description: Array of domain names to reserve (limited by MAX_DOMAIN_NAME_PER_REQUEST)
-              required:
-                - domain_names
-      responses:
-        '201':
-          description: Domains successfully reserved
+                          example: "abc123xyz"
+        '400':
+          description: Bad request - Invalid parameters
           content:
             application/json:
               schema:
                 type: object
                 properties:
-                  message:
+                  error:
                     type: string
-                  reserved_domains:
-                    type: array
-                    items:
-                      type: object
+                    example: "Invalid parameter: domain_names must be a non-empty array of valid domain names"
+        '422':
+          description: Unprocessable Entity - Validation failed
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+                    example: "The maximum number of domain names per request is 20"
+      security:
+        - ipRestriction: []
 
-  /business_registry/registration_code:
-      get:
-        summary: Get registration code for reserved domain
-        description: |
-          Returns the registration code (password) for a reserved domain.
-          This code is crucial for the domain registration process with registrars.
-          The registrar will require this code to verify and complete the registration of the reserved domain.
-          Note: Keep this code confidential and provide it only to your chosen registrar when initiating the domain registration process.
-        security:
-          - CustomTokenAuth: []
-        responses:
-          '200':
-            description: Successful response
-            content:
-              application/json:
-                schema:
-                  type: object
-                  properties:
-                    name:
-                      type: string
-                      description: The name of the reserved domain
-                      example: "example-company.ee"
-                    registration_code:
-                      type: string
-                      description: The registration code (password) to be used when registering the domain with a registrar
-                      example: "secure_registration_code_123xyz"
-          '401':
-            $ref: '#/components/responses/Unauthorized'
-          '404':
-            description: Reserved domain not found
-            content:
-              application/json:
-                schema:
-                  $ref: '#/components/schemas/Error'
 
 components:
   securitySchemes:
+    ipRestriction:
+      type: apiKey
+      name: X-Real-IP
+      in: header
+      description: Access is restricted to allowed IP addresses configured in business_registry_allowed_ips environment variable
+
     CustomTokenAuth:
       type: apiKey
       in: header
