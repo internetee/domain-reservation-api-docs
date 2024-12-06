@@ -26,18 +26,16 @@ info:
          * Check payment status
          * Access domain passwords after successful payment
 
-    ## TODO:
-    - [ ] Add endpoint for retrieving passwords for free-tier reserved domains
-    - [ ] Add additional security layer
-
     ## Important Notes:
     - **Maximum limit:** 20 domains per request
-    - **Authentication:** All endpoints require either IP authentication or token authentication
+    - **Authentication:** All endpoints require both IP authentication and token authentication via the Authorization header
     - **Payment processing:** Handled through Linkpay Everypay without automatic redirects
     - **Payment verification:** After payment, use the status endpoint (`/business_registry/long_reserve_domains_status`) 
       to verify payment completion as payment notifications are processed on our backend
-    - **Important:** It's crucial to store the `user_unique_id` as it ensures domain ownership for the first paying user when
-      multiple reservation requests contain overlapping domain names
+    - **Important:** It's crucial to store the `user_unique_id` for both paid and free reservations:
+      * For paid reservations: Ensures domain ownership for the first paying user
+      * For free reservations: Required to retrieve domain passwords and reservation details later using 
+        the `/business_registry/reserve_domains/{user_unique_id}` endpoint
 
     ### Long-term reservation process:
       * Each user requesting long-term domain reservation receives a unique payment link and invoice in Everypay
@@ -93,6 +91,7 @@ paths:
                     example: "Invalid organization name"
       security:
         - ipRestriction: []
+          ApiTokenAuth: []
 
 
   /api/v1/business_registry/long_reserve_domains:
@@ -170,6 +169,7 @@ paths:
                     description: Optional additional error details
       security:
         - ipRestriction: []
+          ApiTokenAuth: []
 
 
   /api/v1/business_registry/long_reserve_domains_status:
@@ -248,6 +248,7 @@ paths:
                     example: "Reserved domain invoice not found"
       security:
         - ipRestriction: []
+          ApiTokenAuth: []
 
 
   /api/v1/business_registry/reserve_domains:
@@ -301,6 +302,9 @@ paths:
                           format: date-time
                           example: "2024-12-31T23:59:59Z"
                           description: "Expiration date and time of the domain reservation"
+                  user_unique_id:
+                    type: string
+                    example: "f8d51313-b"
         '400':
           description: Bad request - Invalid parameters
           content:
@@ -323,6 +327,56 @@ paths:
                     example: "The maximum number of domain names per request is 20"
       security:
         - ipRestriction: []
+          ApiTokenAuth: []
+
+
+  /api/v1/business_registry/reserve_domains/{user_unique_id}:
+    get:
+      tags:
+        - Business Registry
+      summary: Get reserved domains information
+      description: Retrieve information about previously reserved domains using user_unique_id
+      parameters:
+        - name: user_unique_id
+          in: path
+          required: true
+          schema:
+            type: string
+          example: "f8d51313-b"
+          description: Unique identifier received after reserving domains
+      responses:
+        '200':
+          description: List of reserved domains
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    name:
+                      type: string
+                      example: "example1.ee"
+                    password:
+                      type: string
+                      example: "0b23bf0decfb2724ebd37e46715b63d8"
+                    expire_at:
+                      type: string
+                      format: date-time
+                      example: "2024-12-13T12:31:24.921+02:00"
+        '404':
+          description: Reserved domains not found
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+                    example: "Reserved domains not found"
+      security:
+        - ipRestriction: []
+          ApiTokenAuth: []
 
 
 components:
@@ -333,16 +387,15 @@ components:
       in: header
       description: Access is restricted to allowed IP addresses configured in business_registry_allowed_ips environment variable
 
-    CustomTokenAuth:
+    ApiTokenAuth:
       type: apiKey
       in: header
-      name: X-Auth-Token
+      name: Authorization
       description: |
-        Custom token for identifying specific database records.
-        This token is required for all endpoints except /business_registry/domain_names.
-        The initial token is issued when a domain is reserved and can be refreshed using the /business_registry/refresh_token endpoint.
-        Note that IP restriction applies to all endpoints regardless of token requirement.
-  
+        API token authentication. Token must be provided in the Authorization header.
+        Format: <token>
+        Tokens are configured via the business_registry_api_tokens environment variable.
+
   schemas:
     Error:
       type: object
