@@ -47,7 +47,7 @@ info:
 
 
 servers:
-  - url: https://api.example.com/v1
+  - url: https://testadm.internet.ee
     description: Main API server
 
 paths:
@@ -176,8 +176,18 @@ paths:
     get:
       tags:
         - Business Registry
-      summary: Check status of reserved domains
-      description: Returns the current status of reserved domains and payment information
+      summary: Check status of reserved domains (long-term reservations only)
+      description: |
+        Returns the current status of reserved domains and payment information.
+
+        **Note:** This endpoint is only for **long-term (paid) domain reservations**.
+
+        For **short-term (free) domain reservations**, use the `/api/v1/business_registry/reserve_domains/{user_unique_id}` endpoint instead.
+
+        **Example URL:**
+        ```
+        /api/v1/business_registry/long_reserve_domains_status?invoice_number=1234567&user_unique_id=user-123-xyz
+        ```
       parameters:
         - name: invoice_number
           in: query
@@ -334,8 +344,13 @@ paths:
     get:
       tags:
         - Business Registry
-      summary: Get reserved domains information
-      description: Retrieve information about previously reserved domains using user_unique_id
+      summary: Get reserved domains information (short-term reservations only)
+      description: |
+        Retrieve information about previously reserved domains using user_unique_id.
+
+        **Note:** This endpoint is only for **short-term (free) domain reservations**.
+
+        For **long-term (paid) domain reservations**, use the `/api/v1/business_registry/long_reserve_domains_status` endpoint instead.
       parameters:
         - name: user_unique_id
           in: path
