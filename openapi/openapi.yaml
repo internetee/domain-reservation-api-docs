@@ -66,8 +66,6 @@ info:
     - Customer details (name, address, VAT number, or `private_individual=true` for
       physical persons) can be passed as query parameters so the invoice recipient
       block is filled in by the Business Registry
-    - Optional `amount_paid` and `payment_date` parameters let the portal show the
-      exact amount paid and any overpaid / refundable amount
     - Returns `422` if the invoice is not yet paid, `502` if the billing backend is
       unreachable
 
@@ -744,8 +742,6 @@ paths:
               --data-urlencode "customer_name=Acme OÜ" \
               --data-urlencode "customer_address=Tartu mnt 1, Tallinn" \
               --data-urlencode "customer_vat_no=EE123456789" \
-              --data-urlencode "amount_paid=30.00" \
-              --data-urlencode "payment_date=2026-04-22" \
               -o invoice.pdf
         - lang: "curl"
           label: "Private individual (eraisik)"
@@ -773,7 +769,7 @@ paths:
         block (Arve saaja) shows name, address and VAT number. The main table lists
         the reserved domain names with their status and price, followed by
         "Ridade summa", "Käibemaks" (VAT, rate read from registry settings),
-        "Summa kokku", "Tasutud summa" and "Enammakstud / tagastatav summa".
+        and "Summa kokku".
         The footer lists EIS's own billing details (juridical name, address, reg. no,
         VAT, contacts, bank/IBAN/SWIFT).
 
@@ -784,12 +780,6 @@ paths:
         `[Kliendi VAT number]`) are rendered. For private individuals, pass
         `private_individual=true` — the customer block is replaced with the single
         word `eraisik` and the other customer fields are ignored.
-
-        **Amount paid (optional):**
-        If the Business Registry knows the exact amount the user paid (it may differ
-        from the invoice total when the user overpaid), pass `amount_paid`. If
-        omitted, the invoice grand total is used as a fallback and the overpaid line
-        shows `0,00 EUR`.
 
         **Response:** Binary PDF with `Content-Type: application/pdf` and
         `Content-Disposition: attachment; filename="invoice-<invoice_number>.pdf"`.
@@ -843,27 +833,6 @@ paths:
             When `true`, the customer block is rendered as `eraisik` and the
             `customer_name` / `customer_address` / `customer_vat_no` parameters are ignored.
           example: false
-        - name: amount_paid
-          in: query
-          required: false
-          schema:
-            type: number
-            format: double
-          description: |
-            Amount actually paid by the user, in EUR. Drives the "Tasutud summa" line
-            and the overpaid / refundable amount calculation. When omitted, the
-            invoice grand total is used as a fallback.
-          example: 30.00
-        - name: payment_date
-          in: query
-          required: false
-          schema:
-            type: string
-            format: date
-          description: |
-            Date of the payment (ISO-8601 date). When provided, adds a
-            "Makse kuupäev" line in the details block.
-          example: "2026-04-22"
       responses:
         '200':
           description: Invoice PDF stream
