@@ -1,7 +1,7 @@
 openapi: 3.0.0
 info:
   title: Business Registry Domain Reservation API
-  version: 1.1.0
+  version: 1.2.0
   description: |
     # Domain Reservation API for the Estonian Business Registry
 
@@ -57,7 +57,21 @@ info:
     - When status becomes `paid`, the response includes registration codes for each domain
     - **Note:** Calling this endpoint when the invoice is paid also triggers the creation of reserved domain records (idempotent)
 
-    ### Step 4: Register the domain
+    ### Step 4: (Long-term only) Download the invoice PDF
+    Once the invoice is `paid`, the Business Registry portal can download a printable
+    invoice as a PDF:
+
+    - **Endpoint:** `GET /api/v1/business_registry/reserved_domains_invoice_pdf?invoice_number=...&user_unique_id=...`
+    - The PDF is generated on the fly, not stored on disk
+    - Customer details (name, address, VAT number, or `private_individual=true` for
+      physical persons) can be passed as query parameters so the invoice recipient
+      block is filled in by the Business Registry
+    - Optional `amount_paid` and `payment_date` parameters let the portal show the
+      exact amount paid and any overpaid / refundable amount
+    - Returns `422` if the invoice is not yet paid, `502` if the billing backend is
+      unreachable
+
+    ### Step 5: Register the domain
     The entrepreneur takes the registration code (`password`) to any accredited `.ee` registrar
     and registers the domain via the EPP protocol. Once registered, the domain is removed
     from the reserved list.
@@ -660,6 +674,210 @@ paths:
                 error: "Reserved domain invoice not found"
         '401':
           $ref: '#/components/responses/Unauthorized'
+      security:
+        - ipRestriction: []
+          BearerAuth: []
+
+
+  /api/v1/business_registry/reserved_domains_invoice_pdf:
+    get:
+      tags:
+        - Long-term Reservation (Paid)
+      summary: Download the invoice PDF for a paid long-term reservation
+      description: |
+        Generates and returns a PDF invoice for a long-term (paid) domain reservation.
+        The PDF is produced on the fly — the registry does not persist it.
+
+        **Preconditions:**
+        - The invoice must be in `paid` status. If it is not yet paid, the endpoint
+          returns `422 Unprocessable Entity` echoing the current billing status.
+        - The `invoice_number` + `user_unique_id` pair must match an existing invoice,
+          otherwise `404 Not Found` is returned.
+
+        **PDF layout:**
+        The PDF header shows the invoice number and the EIS logo. The details block
+        contains the invoice date (and optionally the payment date). The customer
+        block (Arve saaja) shows name, address and VAT number. The main table lists
+        the reserved domain names with their status and price, followed by
+        "Ridade summa", "Käibemaks" (VAT, rate read from registry settings),
+        "Summa kokku", "Tasutud summa" and "Enammakstud / tagastatav summa".
+        The footer lists EIS's own billing details (juridical name, address, reg. no,
+        VAT, contacts, bank/IBAN/SWIFT).
+
+        **Customer details (optional query parameters):**
+        The Business Registry passes the customer name, address and VAT number as
+        query parameters so that the PDF reflects the actual invoice recipient.
+        If these are omitted, placeholders (`[Kliendi nimi]`, `[Kliendi aadress]`,
+        `[Kliendi VAT number]`) are rendered. For private individuals, pass
+        `private_individual=true` — the customer block is replaced with the single
+        word `eraisik` and the other customer fields are ignored.
+
+        **Amount paid (optional):**
+        If the Business Registry knows the exact amount the user paid (it may differ
+        from the invoice total when the user overpaid), pass `amount_paid`. If
+        omitted, the invoice grand total is used as a fallback and the overpaid line
+        shows `0,00 EUR`.
+
+        **Response:** Binary PDF with `Content-Type: application/pdf` and
+        `Content-Disposition: attachment; filename="invoice-<invoice_number>.pdf"`.
+      parameters:
+        - name: invoice_number
+          in: query
+          required: true
+          schema:
+            type: string
+          description: Invoice number returned by `POST /long_reserve_domains`.
+          example: "1234567"
+        - name: user_unique_id
+          in: query
+          required: true
+          schema:
+            type: string
+          description: |
+            Unique identifier returned by `POST /long_reserve_domains`.
+            Both `invoice_number` and `user_unique_id` must match to locate the invoice.
+          example: "a1b2c3d4e5"
+        - name: customer_name
+          in: query
+          required: false
+          schema:
+            type: string
+          description: |
+            Customer legal name shown in the "Arve saaja" block.
+            Ignored when `private_individual=true`.
+          example: "Acme OÜ"
+        - name: customer_address
+          in: query
+          required: false
+          schema:
+            type: string
+          description: Customer address. Ignored when `private_individual=true`.
+          example: "Tartu mnt 1, Tallinn"
+        - name: customer_vat_no
+          in: query
+          required: false
+          schema:
+            type: string
+          description: |
+            Customer VAT / KMKR number. Ignored when `private_individual=true`.
+          example: "EE123456789"
+        - name: private_individual
+          in: query
+          required: false
+          schema:
+            type: boolean
+          description: |
+            When `true`, the customer block is rendered as `eraisik` and the
+            `customer_name` / `customer_address` / `customer_vat_no` parameters are ignored.
+          example: false
+        - name: amount_paid
+          in: query
+          required: false
+          schema:
+            type: number
+            format: double
+          description: |
+            Amount actually paid by the user, in EUR. Drives the "Tasutud summa" line
+            and the overpaid / refundable amount calculation. When omitted, the
+            invoice grand total is used as a fallback.
+          example: 30.00
+        - name: payment_date
+          in: query
+          required: false
+          schema:
+            type: string
+            format: date
+          description: |
+            Date of the payment (ISO-8601 date). When provided, adds a
+            "Makse kuupäev" line in the details block.
+          example: "2026-04-22"
+      responses:
+        '200':
+          description: Invoice PDF stream
+          headers:
+            Content-Disposition:
+              schema:
+                type: string
+                example: 'attachment; filename="invoice-1234567.pdf"'
+          content:
+            application/pdf:
+              schema:
+                type: string
+                format: binary
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          description: |
+            No invoice found matching the provided `invoice_number` +
+            `user_unique_id` combination.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                error: "Reserved domain invoice not found"
+        '422':
+          description: |
+            Invoice is not paid yet. The response echoes the current billing
+            status and message so the caller can decide whether to retry later
+            or redirect the user back to the payment page.
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - error
+                  - details
+                properties:
+                  error:
+                    type: string
+                    example: "Invoice is not paid"
+                  details:
+                    type: object
+                    properties:
+                      status:
+                        type: string
+                        description: Billing status (`pending`, `unpaid`, `failed`, `cancelled`, ...).
+                        example: "pending"
+                      message:
+                        type: string
+                        description: Human-readable message from the billing system.
+                        example: "Payment pending"
+              example:
+                error: "Invoice is not paid"
+                details:
+                  status: "pending"
+                  message: "Payment pending"
+        '502':
+          description: |
+            Billing service is unreachable. Returned when the registry cannot
+            contact the billing backend (DNS, TCP, TLS or read timeout). Safe
+            to retry after a short delay.
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - error
+                  - details
+                properties:
+                  error:
+                    type: string
+                    example: "Billing service unavailable"
+                  details:
+                    type: object
+                    properties:
+                      reason:
+                        type: string
+                        description: |
+                          Ruby exception class that triggered the failure
+                          (e.g. `SocketError`, `Net::OpenTimeout`,
+                          `Errno::ECONNREFUSED`).
+                        example: "SocketError"
+              example:
+                error: "Billing service unavailable"
+                details:
+                  reason: "SocketError"
       security:
         - ipRestriction: []
           BearerAuth: []
