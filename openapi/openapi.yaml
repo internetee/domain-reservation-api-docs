@@ -47,6 +47,9 @@ info:
     - The user pays either through `linkpay_url` (Everypay) or by bank transfer to the IBAN shown on the invoice PDF, with `reference_no` as the reference number
     - After the user pays, the domains are reserved for 1 year and registration codes become available.
       A bank transfer is processed when the bank statement reaches the billing system, so it is not instant
+    - Issuing an invoice does not hold the domains. Reservation is first-come-first-served: if another
+      user pays for the same domain first, or the domain is otherwise taken before a bank transfer arrives,
+      the invoice is cancelled (status `cancelled`) and the payment is refunded
 
     ### Step 3: Check reservation status and retrieve registration codes
 
@@ -794,6 +797,10 @@ paths:
         The footer lists EIS's own billing details (juridical name, address, reg. no,
         VAT, contacts, bank/IBAN/SWIFT). To pay by bank transfer, use the IBAN from the
         footer and the reference number from the details block.
+        An unpaid invoice also contains a notice (in Estonian and English) that issuing the
+        invoice does not guarantee the reservation: reservation is first-come-first-served,
+        and if it is no longer possible when the payment arrives, the invoice is cancelled
+        and the payment is refunded.
 
         **Customer details (optional query parameters):**
         The Business Registry passes the customer name, address and VAT number as
